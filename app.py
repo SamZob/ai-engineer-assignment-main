@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Form
 from fastapi.responses import JSONResponse
 from uuid import uuid4
 import json
@@ -131,3 +131,45 @@ def detect_language(description: str):
             return language
     return "Python"  # Default to Python if no specific keywords are found
 
+#################################################################
+# Snippet Management
+
+
+@app.post("/generate-code/")
+async def create_snippet(description: str = Form(...) ):
+    snippets = load_snippets()
+    new_description = process_language(description)
+    language = detect_language(description)
+    code = await generate_response(new_description, language)
+    snippet = {
+        "id": str(uuid4()),
+        "title": f"Generated {language} Function",
+        "language": language,
+        "description": description,
+        "code": code
+    }
+    snippets.append(snippet)
+    save_snippets(snippets)
+    return JSONResponse(content=snippet)
+
+@app.get("/snippets/")
+def list_snippets():
+    return load_snippets()
+
+@app.delete("/snippets/{snippet_id}")
+def delete_snippet(snippet_id: str):
+    snippets = load_snippets()
+    snippets = [snippet for snippet in snippets if snippet["id"] != snippet_id]
+    save_snippets(snippets)
+    return {"message": "Snippet deleted"}
+
+@app.get("/snippets/{snippet_id}")
+def get_snippet(snippet_id: str):
+    snippets = load_snippets()
+    snippet = next((s for s in snippets if s["id"] == snippet_id), None)
+    if snippet:
+        return snippet
+    raise HTTPException(status_code=404, detail="Snippet not found")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port= 8000 )
