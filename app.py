@@ -168,10 +168,12 @@ async def generate_code(snippet_id: str, description: str = Form(...)):
     language = detect_language(new_description)
     code = await generate_response(new_description, language)
     
+    # Generate title based on description
+    title_prompt = f"Title only: Generate title based on the folowing user description: {description}. The title must not exceed 10 words and should be doubles quoted or single quoted "
     # Update the snippet with the generated code, language, and a dynamic title
     snippet["code"] = code
     snippet["language"] = language
-    snippet["title"] = f"Generated {language} Function"
+    snippet["title"] = await request_chatgpt(title_prompt)
     save_snippets(snippets)
     return JSONResponse(content=snippet)
 
@@ -207,7 +209,6 @@ async def improve_code(snippet_id: str, feedback: str = Form(...)):
 
     # Store feedback and immediately use it to improve the code
     snippet['feedback_code'] = feedback
-    save_snippets(snippets)
 
     # Assume you're using feedback to generate a prompt to improve code
     prompt = f"Code only: Improve the following {snippet['language']} code based on this feedback: '{feedback}'. Here is the original code:\n{snippet['code']}"

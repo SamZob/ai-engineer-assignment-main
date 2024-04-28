@@ -91,7 +91,7 @@ function selectSnippet(id) {
             document.getElementById("test-output").textContent = snippet.tests || 'No generated tests yet.';
             document.getElementById("improved-tests-output").textContent = snippet.improved_tests || 'No improved tests yet.'
             document.getElementById("test-output").textContent = snippet.tests || 'No generated tests yet.'
-            document.getElementById("test-result").textContent = snippet.tests_results || 'No Tests run yet.'
+            document.getElementById("test-results").textContent = snippet.test_results.results || 'No Tests run yet.'
 
         })
         .catch(error => {
@@ -100,15 +100,30 @@ function selectSnippet(id) {
         });
 }
 
+function removeMarkdownCodeTags(text) {
+    // Regex to remove ``` followed by any word characters (like ```python)
+    const regex = /```[a-zA-Z]+/g;
+    // Replace these tags with an empty string
+    return text.replace(regex, '').replace(/```/g, ''); // also remove closing ```
+}
+
 
 async function generateCode(snippetId, description) {
     const formData = new FormData();
     formData.append('description', description);
     const response = await fetch(`/generate-code/${snippetId}`, { method: 'POST', body: formData });
-    const snippet = await response.json();
-    document.getElementById("code-output").innerText = snippet.code;
-    document.getElementById("generate-tests-btn").disabled = false;
+    if (response.ok) {
+        const snippet = await response.json();
+        // Clean the code received from Markdown code block tags
+        const cleanCode = removeMarkdownCodeTags(snippet.code);
+        document.getElementById("code-output").innerText = cleanCode;
+        document.getElementById("generate-tests-btn").disabled = false;
+    } else {
+        console.error('Failed to generate code:', response.statusText);
+        alert('Failed to generate code.');
+    }
 }
+
 
 
 async function improveCode(snippetId, feedback) {
@@ -118,20 +133,25 @@ async function improveCode(snippetId, feedback) {
         method: 'POST',
         body: formData
     });
-    const snippet = await response.json();
     if (response.ok) {
-        document.getElementById("improved-code-output").innerText = snippet.improved_code;
-        alert("Code improved successfully.");
+        const snippet = await response.json();
+        // Clean the improved code from Markdown code block tags
+        const cleanCode = removeMarkdownCodeTags(snippet.code);
+        document.getElementById("improved-code-output").innerText = cleanCode;
+        document.getElementById("improve-code-btn").disabled = false;
     } else {
-        alert("Failed to improve code: " + snippet.detail);
+        console.error('Failed to improve code:', response.statusText);
+        alert('Failed to improve code.');
     }
 }
 
+    
 
 async function generateTests(snippetId) {
     const response = await fetch(`/snippets/${snippetId}/generate-tests/`, { method: 'POST'});
     const snippet = await response.json();
     document.getElementById("test-output").innerText = snippet.tests;
+    document.getElementById("generate-tests-btn").disabled = false;
 }
 
 async function improveTests(snippetId, feedback) {
@@ -139,20 +159,46 @@ async function improveTests(snippetId, feedback) {
     formData.append('feedback', feedback);
     const response = await fetch(`/snippets/${snippetId}/improve-tests/`, { method: 'POST', body: formData });
     const snippet = await response.json();
-    document.getElementById("improved-tests-output").innerText = snippet.improved_tests;
+    document.getElementById("improved-tests-output").innerText = snippet.tests;
+    document.getElementById("improve-tests-btn").disabled = false;
 }
+
+// async function improveCode(snippetId, feedback) {
+//     try {
+//         const formData = new FormData();
+//         formData.append('feedback', feedback);
+//         const response = await fetch(`/snippets/${snippetId}/improve-code/`, {
+//             method: 'POST',
+//             body: formData
+//         });
+//         console.log('Response Status:', response.status); // Check response status
+//         const snippet = await response.json();
+//         console.log('Snippet Data Received:', snippet); // Log the data received
+//         if (snippet.code) {
+//             document.getElementById("improved-code-output").innerText = snippet.code;
+//         } else {
+//             console.error('No improved code available:', snippet);
+//         }
+//     } catch (error) {
+//         console.error("Failed to improve code:", error);
+//     }
+// }
+
 
 async function runTests(snippetId) {
     const response = await fetch(`/snippets/${snippetId}/test/`, { method: 'POST' });
     const result = await response.json();
     const testResultDiv = document.getElementById("test-result");
+    console.log(result)
     if (result.message === "Tests passed") {
         testResultDiv.className = "bg-green-300 p-4 rounded mb-4";
+
     } else {
         testResultDiv.className = "bg-red-300 p-4 rounded mb-4";
     }
-    document.getElementById("test-output").innerText =  result.results
-    testResultDiv.innerText = result.results;
+    document.getElementById("test-results").innerText =  result.output
+    testResultDiv.innerText = result.output;
+    document.getElementById("run-tests-btn").disabled = false;
 }
 
 async function deleteSnippet(snippetId) {
