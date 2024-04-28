@@ -234,7 +234,6 @@ async def submit_feedback(snippet_id: str = Form(...), feedback: str = Form(...)
 async def improve_tests(snippet_id: str):
     snippets = load_snippets()
     snippet = next((s for s in snippets if s["id"] == snippet_id), None)
-
     if snippet:
         feedback = snippet['feedback_tests']
         if feedback:
@@ -269,6 +268,7 @@ def parse_and_execute_tests(code, test_cases):
             test_script += f"""
 print("Running test with inputs: {inputs} with expected output: {expected_output}")
 result = {function_name}({inputs})
+print("got" + str(result))
 assert result == {expected_output}, f"Test failed: expected {expected_output}, got {{result}}"
 """
     return test_script
@@ -283,15 +283,37 @@ async def test_snippet(snippet_id: str):
 
         try:
             result = subprocess.run(['python', '-c', full_script], text=True, capture_output=True, check=True)
-            snippet["test_results"] = result.stdout
+            snippet["test_results"] = {"Test": "passed", "results":result.stdout} 
             save_snippets(snippets)
             return {"message": "Tests passed", "output": result.stdout}
         except subprocess.CalledProcessError as e:
-            snippet["test_results"] = e.output
+            snippet["test_results"] = {"Test": "failed", "results":e.output}
             save_snippets(snippets)
             return {"message": "Tests failed", "output": e.output}
     else:
         raise HTTPException(status_code=404, detail="Snippet not found or not Python")
+    
+
+@app.post("/regenerate-code/")
+async def regenerate_code(snippet_id: str = Form(...)):
+    snippets = load_snippets()
+    snippet = next((s for s in snippets if s["id"] == snippet_id), None)
+    if snippet:
+        results = snippet['test_results']
+        if results:
+            if results['Test'] == 'failed':
+            
+                prompt = f"code only: Improve the following {snippet['language']} code based on the test results: '{results['results']}'. Here is the code: \n{snippet['improved_code']}"
+                regenerate_code = await request_chatgpt(prompt)
+                snippet['regenerated_code'] = regenerate_code
+                save_snippets(snippets)
+                return {"message": "Code regenerated", "code": regenerate_code}
+            
+            raise HTTPException(status_code=404, detail="Tests did not fail")
+        raise HTTPException(status_code=404, detail="Tests results not found")
+    raise HTTPException(status_code=404, detail="Snippet not found")
+
+
 
 
 
