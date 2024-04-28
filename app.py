@@ -11,17 +11,22 @@ from googletrans import Translator, LANGUAGES
 import uvicorn
 from dotenv import load_dotenv
 import os
-
-
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 app = FastAPI()
+
+# Directory where your design.html and other static files are stored
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+async def read_root():
+    return FileResponse('static/design.html')
 
 # Mock database for storing snippets
 snippets_db = []
 requests_db = []
 feedbacks = []
-
-app = FastAPI()
 
 # Load environment variables from .env file
 load_dotenv()  # This assumes your .env file is in the same directory as your main app file
@@ -136,20 +141,37 @@ def detect_language(description: str):
 #################################################################
 # Snippet generation and Management
 
-@app.post("/generate-code/")
-async def create_snippet(description: str = Form(...) ):
+@app.post("/create-snippet/")
+async def create_snippet():
     snippets = load_snippets()
-    new_description = process_language(description)
-    language = detect_language(description)
-    code = await generate_response(new_description, language)
     snippet = {
         "id": str(uuid4()),
-        "title": f"Generated {language} Function",
-        "language": language,
-        "description": description,
-        "code": code
+        "description": None,
+        "language": None,  # Language will be set after code generation
+        "title": None,     # Title will be set after code generation
+        "code": None       # Code will be generated later
     }
     snippets.append(snippet)
+    save_snippets(snippets)
+    return JSONResponse(content=snippet)
+
+@app.post("/generate-code/{snippet_id}")
+async def generate_code(snippet_id: str, description: str = Form(...)):
+    snippets = load_snippets()
+    snippet = next((s for s in snippets if s["id"] == snippet_id), None)
+    if not snippet:
+        raise HTTPException(status_code=404, detail="Snippet not found")
+    
+    snippet["description"] = description
+    # Process the description to determine the language and generate code
+    new_description = process_language(description)
+    language = detect_language(new_description)
+    code = await generate_response(new_description, language)
+    
+    # Update the snippet with the generated code, language, and a dynamic title
+    snippet["code"] = code
+    snippet["language"] = language
+    snippet["title"] = f"Generated {language} Function"
     save_snippets(snippets)
     return JSONResponse(content=snippet)
 
@@ -175,31 +197,28 @@ def get_snippet(snippet_id: str ):
 #################################################################
 # Feedback and improved code
 
-# Route to submit feedback
-@app.post("/submit-feedback-code/")
-async def submit_feedback(snippet_id: str = Form(...), feedback: str = Form(...)):
-        snippets = load_snippets()
-        snippet = next((s for s in snippets if s["id"] == snippet_id), None)
-        if snippet:
-            snippet['feedback_code'] = process_language(feedback)
-            save_snippets(snippets)
-            return {"message": "Feedback received", "snippet_id": snippet_id}
-        raise HTTPException(status_code=404, detail="Snippet not found")
-
 # Route to improve code after giving feedback on code
 @app.post("/snippets/{snippet_id}/improve-code/")
-async def improve_code(snippet_id: str):
+async def improve_code(snippet_id: str, feedback: str = Form(...)):
     snippets = load_snippets()
     snippet = next((s for s in snippets if s["id"] == snippet_id), None)
-    if snippet:
-        feedback = snippet['feedback_code']
-        if feedback:
-            prompt = f"Code only: Improve the following {snippet['language']} code based on the feedback: '{feedback}'. Here is the code:\n{snippet['code']}"
-            improved_code = await request_chatgpt(prompt)
-            snippet['improved_code'] = improved_code
-            save_snippets(snippets)
-            return {"message": "Code improved", "code": improved_code}
-    raise HTTPException(status_code=404, detail="Snippet or Feedback not found")
+    if not snippet:
+        raise HTTPException(status_code=404, detail="Snippet not found")
+
+    # Store feedback and immediately use it to improve the code
+    snippet['feedback_code'] = feedback
+    save_snippets(snippets)
+
+    # Assume you're using feedback to generate a prompt to improve code
+    prompt = f"Code only: Improve the following {snippet['language']} code based on this feedback: '{feedback}'. Here is the original code:\n{snippet['code']}"
+    improved_code = await request_chatgpt(prompt)
+
+    # Update snippet with the improved code
+    snippet['improved_code'] = improved_code
+    save_snippets(snippets)
+
+    return {"message": "Code improved", "code": improved_code}
+
 
 ################################################################################
 # Generate tests / feedbacks / improved tests
@@ -210,7 +229,7 @@ async def generate_tests(snippet_id: str):
     snippet = next((s for s in snippets if s["id"] == snippet_id), None)
     if snippet:
         improved_code = snippet['improved_code']
-        prompt = f"Tests only: Generate test cases for the following {snippet['language']} code:\n '{improved_code}'"
+        prompt = f"Tests only: Generate test cases for the following {snippet['language']} code:\n '{improved_code}'. The format should respect the following regex expression: r'Test case \d+:\nInput:\s*(.*?)\nExpected output:\s*(.*?)(?=\n\nTest case |\Z)' "
         tests = await request_chatgpt(prompt)
         snippet['tests'] = tests
         save_snippets(snippets)
@@ -218,26 +237,15 @@ async def generate_tests(snippet_id: str):
     raise HTTPException(status_code=404, detail="Snippet not found")
 
 
-@app.post("/submit-feedback-test/")
-async def submit_feedback(snippet_id: str = Form(...), feedback: str = Form(...)):
-    snippets = load_snippets()
-    snippet = next((s for s in snippets if s["id"] == snippet_id), None)
-    if snippet:
-            snippet['feedback_tests'] = process_language(feedback)
-            save_snippets(snippets)
-            return {"message": "Feedback received", "snippet_id": snippet_id}
-    raise HTTPException(status_code=404, detail="Snippet not found")
-
-
-
 @app.post("/snippets/{snippet_id}/improve-tests/")
-async def improve_tests(snippet_id: str):
+async def improve_tests(snippet_id: str, feedback:str = Form(...)):
     snippets = load_snippets()
     snippet = next((s for s in snippets if s["id"] == snippet_id), None)
+
     if snippet:
-        feedback = snippet['feedback_tests']
-        if feedback:
-            prompt = f"Tests only: Improve the following test cases for the {snippet['language']} code based on the feedback: '{feedback}'. Here are the test cases:\n{snippet['tests']}"
+        snippet['feedback_tests'] = feedback
+        if snippet['feedback_tests']:
+            prompt = f"Tests only: Improve the following test cases for the {snippet['language']} code based on the feedback: '{snippet['feedback_tests']}'. Here are the test cases:\n{snippet['tests']}"
             improved_tests = await request_chatgpt(prompt)
             snippet['improved_tests'] = improved_tests
             save_snippets(snippets)
@@ -312,17 +320,6 @@ async def regenerate_code(snippet_id: str = Form(...)):
             raise HTTPException(status_code=404, detail="Tests did not fail")
         raise HTTPException(status_code=404, detail="Tests results not found")
     raise HTTPException(status_code=404, detail="Snippet not found")
-
-
-
-
-
-
-
-
-
-
-
 
 # Run app
 if __name__ == "__main__":
