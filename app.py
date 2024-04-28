@@ -230,7 +230,7 @@ async def generate_tests(snippet_id: str):
     snippet = next((s for s in snippets if s["id"] == snippet_id), None)
     if snippet:
         improved_code = snippet['improved_code']
-        prompt = f"Tests only: Generate test cases for the following {snippet['language']} code:\n '{improved_code}'. The format should respect the following regex expression: r'Test case \d+:\nInput:\s*(.*?)\nExpected output:\s*(.*?)(?=\n\nTest case |\Z)' "
+        prompt = f"Tests only: Generate test cases for the following {snippet['language']} code:\n '{improved_code}'. The format should respect the following regex expression: r'Test case \d+:\nInput:\s*(.*?)\nExpected output:\s*(.*?)(?=\n\nTest case |\Z)'.The input "
         tests = await request_chatgpt(prompt)
         snippet['tests'] = tests
         save_snippets(snippets)
@@ -246,7 +246,7 @@ async def improve_tests(snippet_id: str, feedback:str = Form(...)):
     if snippet:
         snippet['feedback_tests'] = feedback
         if snippet['feedback_tests']:
-            prompt = f"Tests only: Improve the following test cases for the {snippet['language']} code based on the feedback: '{snippet['feedback_tests']}'. Here are the test cases:\n{snippet['tests']}"
+            prompt = f"Tests only: Improve the following test cases for the {snippet['language']} code based on the feedback: '{snippet['feedback_tests']}'. Here are the test cases:\n{snippet['tests']} The format should respect the following regex expression: r'Test case \d+:\nInput:\s*(.*?)\nExpected output:\s*(.*?)(?=\n\nTest case |\Z)'"
             improved_tests = await request_chatgpt(prompt)
             snippet['improved_tests'] = improved_tests
             save_snippets(snippets)
@@ -256,29 +256,61 @@ async def improve_tests(snippet_id: str, feedback:str = Form(...)):
 
 def clean_code(code):
     # Remove markdown code fences if present
-    return code.replace("```python", "").replace("```", "").strip()
-
+    if "````python" in code:
+        return code.replace("```python", "").replace("```", "").strip()
+    else:
+        return code
 
 def parse_and_execute_tests(code, test_cases):
     # Clean and prepare the code
     cleaned_code = clean_code(code)
-    # Find all functions in the code (assuming simple function definitions)
+    # Find all functions in the code
     functions = re.findall(r"def (\w+)\(", cleaned_code)
     
-    test_script = f"{cleaned_code}\n"
+    test_script = f"{cleaned_code}\nimport sys\n"
     test_case_pattern = re.compile(r"Test case \d+:\nInput:\s*(.*?)\nExpected output:\s*(.*?)(?=\n\nTest case |\Z)", re.DOTALL)
     matches = test_case_pattern.findall(test_cases)
     
-    for match in matches:
-        inputs, expected_output = match
-        if functions:
-            # Assuming the first function is the one to test
-            function_name = functions[0]
+    # Prepare to test all functions found
+    results = []
+    for function_name in functions:
+        for inputs, expected_output in matches:
+            # Generate dynamic test script for each function
             test_script += f"""
-print("Running test with inputs: {inputs} with expected output: {expected_output}")
-result = {function_name}({inputs})
-print("got" + str(result))
-assert result == {expected_output}, f"Test failed: expected {expected_output}, got {{result}}"
+result = {function_name}({inputs})           
+print("\\nRunning test for function: {function_name} \\nwith inputs: {inputs} \\nwith expected output: {expected_output},\\ngot:" + str(result))
+if str(result) != str({expected_output}):
+    print("Test failed: expected {expected_output}, got " + str(result))
+    sys.exit(1)
+"""
+    return test_script
+
+def parse_and_execute_tests(code, test_cases):
+    # Clean and prepare the code
+    cleaned_code = clean_code(code)
+    # Find all functions in the code
+    functions = re.findall(r"def (\w+)\(", cleaned_code)
+    
+    test_script = f"{cleaned_code}\nimport sys\n"
+    test_case_pattern = re.compile(r"Test case \d+:\nInput:\s*(.*?)\nExpected output:\s*(.*?)(?=\n\nTest case |\Z)", re.DOTALL)
+    matches = test_case_pattern.findall(test_cases)
+    
+    for function_name in functions:
+        for inputs, expected_output in matches:
+            # Modify input parsing to correctly format it for function calls
+            if "(" or ")" in inputs:
+                inputs = inputs.strip("()")# Remove enclosing parentheses
+                print(inputs)  
+            test_script += f"""
+try:
+    result = {function_name}({inputs})
+    expected = {expected_output}
+    print("\\nRunning test for function: {function_name} with inputs: {inputs}")
+    print("Expected output: {expected_output}, got:", result)
+    assert result == expected, "Test failed: expected {expected_output}, got " + str(result)
+except Exception as e:
+    print("Test for {function_name} failed due to an error:", str(e))
+    sys.exit(1)
 """
     return test_script
 
@@ -291,20 +323,21 @@ async def test_snippet(snippet_id: str):
         full_script = parse_and_execute_tests(snippet['improved_code'], snippet['improved_tests'])
 
         try:
+            # Use subprocess to execute the Python code
             result = subprocess.run(['python', '-c', full_script], text=True, capture_output=True, check=True)
-            snippet["test_results"] = {"Test": "passed", "results":result.stdout} 
+            snippet["test_results"] = {"Test": "passed", "results": result.stdout}
             save_snippets(snippets)
             return {"message": "Tests passed", "output": result.stdout}
         except subprocess.CalledProcessError as e:
-            snippet["test_results"] = {"Test": "failed", "results":e.output}
+            snippet["test_results"] = {"Test": "failed", "results": e.stdout}
             save_snippets(snippets)
-            return {"message": "Tests failed", "output": e.output}
+            return {"message": "Tests failed", "output": e.stdout}
     else:
         raise HTTPException(status_code=404, detail="Snippet not found or not Python")
-    
+ 
 
 @app.post("/regenerate-code/")
-async def regenerate_code(snippet_id: str = Form(...)):
+async def regenerate_code(snippet_id: str):
     snippets = load_snippets()
     snippet = next((s for s in snippets if s["id"] == snippet_id), None)
     if snippet:

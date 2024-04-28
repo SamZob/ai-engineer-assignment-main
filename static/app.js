@@ -86,19 +86,29 @@ function selectSnippet(id) {
             // Display snippet details
             document.getElementById("description-textarea").value = snippet.description || '';
             document.getElementById("code-output").textContent = snippet.code || 'No code generated yet.';
-            const improvedCodeOutput = document.getElementById("improved-code-output"); // Make sure you have this element in your HTML
+            const improvedCodeOutput = document.getElementById("improved-code-output");
             improvedCodeOutput.textContent = snippet.improved_code || 'No improvements yet.';
             document.getElementById("test-output").textContent = snippet.tests || 'No generated tests yet.';
             document.getElementById("improved-tests-output").textContent = snippet.improved_tests || 'No improved tests yet.'
             document.getElementById("test-output").textContent = snippet.tests || 'No generated tests yet.'
-            document.getElementById("test-results").textContent = snippet.test_results.results || 'No Tests run yet.'
+            // document.getElementById("test-results").textContent = snippet.test_results.results || 'No Tests run yet.'
 
+            // Highlight the selected snippet in the list
+            const snippets = document.querySelectorAll("#snippets li");
+            snippets.forEach(snippet => {
+                if (snippet.querySelector('a').getAttribute('onclick').includes(id)) {
+                    snippet.querySelector('button').style.display = 'none'; // Hide delete button
+                } else {
+                    snippet.querySelector('button').style.display = 'block'; // Show delete button for other snippets
+                }
+            });
         })
         .catch(error => {
             console.error('Error fetching snippet:', error);
             alert('Failed to load snippet details.');
         });
 }
+
 
 function removeMarkdownCodeTags(text) {
     // Regex to remove ``` followed by any word characters (like ```python)
@@ -109,6 +119,9 @@ function removeMarkdownCodeTags(text) {
 
 
 async function generateCode(snippetId, description) {
+    const loadingMessage = document.getElementById("code-output");
+    loadingMessage.innerText = 'Generating code...';  // Display loading message
+
     const formData = new FormData();
     formData.append('description', description);
     const response = await fetch(`/generate-code/${snippetId}`, { method: 'POST', body: formData });
@@ -127,6 +140,9 @@ async function generateCode(snippetId, description) {
 
 
 async function improveCode(snippetId, feedback) {
+    const loadingMessage = document.getElementById("improved-code-output");
+    loadingMessage.innerText = 'Improving code...';  // Display loading message
+
     const formData = new FormData();
     formData.append('feedback', feedback);
     const response = await fetch(`/snippets/${snippetId}/improve-code/`, {
@@ -148,6 +164,9 @@ async function improveCode(snippetId, feedback) {
     
 
 async function generateTests(snippetId) {
+    const loadingMessage = document.getElementById("test-output");
+    loadingMessage.innerText = 'Generating test cases...';  // Display loading message
+    
     const response = await fetch(`/snippets/${snippetId}/generate-tests/`, { method: 'POST'});
     const snippet = await response.json();
     document.getElementById("test-output").innerText = snippet.tests;
@@ -155,6 +174,9 @@ async function generateTests(snippetId) {
 }
 
 async function improveTests(snippetId, feedback) {
+    const loadingMessage = document.getElementById("improved-tests-output");
+    loadingMessage.innerText = 'Improving test cases...';  // Display loading message
+
     const formData = new FormData();
     formData.append('feedback', feedback);
     const response = await fetch(`/snippets/${snippetId}/improve-tests/`, { method: 'POST', body: formData });
@@ -163,43 +185,36 @@ async function improveTests(snippetId, feedback) {
     document.getElementById("improve-tests-btn").disabled = false;
 }
 
-// async function improveCode(snippetId, feedback) {
-//     try {
-//         const formData = new FormData();
-//         formData.append('feedback', feedback);
-//         const response = await fetch(`/snippets/${snippetId}/improve-code/`, {
-//             method: 'POST',
-//             body: formData
-//         });
-//         console.log('Response Status:', response.status); // Check response status
-//         const snippet = await response.json();
-//         console.log('Snippet Data Received:', snippet); // Log the data received
-//         if (snippet.code) {
-//             document.getElementById("improved-code-output").innerText = snippet.code;
-//         } else {
-//             console.error('No improved code available:', snippet);
-//         }
-//     } catch (error) {
-//         console.error("Failed to improve code:", error);
-//     }
-// }
-
 
 async function runTests(snippetId) {
+    // First, retrieve the snippet details to check the language
+    const snippetResponse = await fetch(`/snippets/${snippetId}`);
+    if (!snippetResponse.ok) {
+        alert('Failed to retrieve snippet details.');
+        return;
+    }
+    const snippet = await snippetResponse.json();
+
+    // Check if the language of the snippet is Python
+    if (snippet.language !== 'Python') {
+        alert('Testing is only supported for Python code.');
+        return; // Exit the function if the language is not Python
+    }
+
+    // Proceed with running the tests if the language is Python
     const response = await fetch(`/snippets/${snippetId}/test/`, { method: 'POST' });
     const result = await response.json();
     const testResultDiv = document.getElementById("test-result");
-    console.log(result)
-    if (result.message === "Tests passed") {
-        testResultDiv.className = "bg-green-300 p-4 rounded mb-4";
 
+    if (response.ok) {
+        testResultDiv.className = result.message === "Tests passed" ? "bg-green-300 p-4 rounded mb-4" : "bg-red-300 p-4 rounded mb-4";
+        testResultDiv.innerText = result.output;
     } else {
         testResultDiv.className = "bg-red-300 p-4 rounded mb-4";
+        testResultDiv.innerText = 'Failed to run tests due to server error. Please try again.';
     }
-    document.getElementById("test-results").innerText =  result.output
-    testResultDiv.innerText = result.output;
-    document.getElementById("run-tests-btn").disabled = false;
 }
+
 
 async function deleteSnippet(snippetId) {
     const response = await fetch(`/snippets/${snippetId}`, { method: 'DELETE' });
