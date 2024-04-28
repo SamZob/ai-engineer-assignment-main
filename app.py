@@ -211,7 +211,7 @@ async def improve_code(snippet_id: str, feedback: str = Form(...)):
     snippet['feedback_code'] = feedback
 
     # Assume you're using feedback to generate a prompt to improve code
-    prompt = f"Code only: Improve the following {snippet['language']} code based on this feedback: '{feedback}'. Here is the original code:\n{snippet['code']}"
+    prompt = f"Code only: Improve the following {snippet['language']} code based on this feedback: '{feedback}'. Here is the original code:\n{snippet['code']}\n Let's think step by step"
     improved_code = await request_chatgpt(prompt)
 
     # Update snippet with the improved code
