@@ -1,19 +1,21 @@
+// Event listener to ensure DOM content is loaded before scripts run
 document.addEventListener("DOMContentLoaded", function() {
+    // Button elements and other controls
     const createSnippetBtn = document.getElementById("create-snippet-btn");
     createSnippetBtn.addEventListener("click", createSnippet);
     const generateCodeBtn = document.getElementById("generate-code-btn");
     const descriptionTextarea = document.getElementById("description-textarea");
-    // const feedbackInput = document.getElementById("feedback-input");
     const improveCodeBtn = document.getElementById("improve-code-btn");
     const generateTestsBtn = document.getElementById("generate-tests-btn");
     const feedbackTestInput = document.getElementById("feedback-test-input");
     const improveTestsBtn = document.getElementById("improve-tests-btn");
     const runTestsBtn = document.getElementById("run-tests-btn");
-    const regenerateCodeBtn = document.getElementById("regenerate-code-btn")
-    
+    const regenerateCodeBtn = document.getElementById("regenerate-code-btn");
 
-    listSnippets(); // Initial call to populate the list of snippets
+    // Initial fetch and display of snippets
+    listSnippets();
 
+    // Event listeners for buttons that initiate API calls
     generateCodeBtn.addEventListener("click", function() {
         generateCode(currentSnippetId, descriptionTextarea.value);
     });
@@ -40,21 +42,24 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
-let currentSnippetId = null; // Currently selected snippet ID
+// Variable to keep track of the currently selected snippet ID
+let currentSnippetId = null;
 
+// Function to create a new snippet via API and update UI
 async function createSnippet() {
     const response = await fetch('/create-snippet/', { method: 'POST' });
     const snippet = await response.json();
     currentSnippetId = snippet.id; // Set the current snippet ID
     document.getElementById("generate-code-btn").disabled = false;
-    listSnippets(); // Update the snippet list
+    listSnippets(); // Refresh the list of snippets
 }
 
+// Function to display all snippets in the UI
 async function listSnippets() {
     const response = await fetch('/snippets/');
     const snippets = await response.json();
     const snippetList = document.getElementById("snippets");
-    snippetList.innerHTML = ''; // Clear existing list
+    snippetList.innerHTML = ''; // Clear existing snippet list
     snippets.forEach(snippet => {
         const li = document.createElement("li");
         li.className = "flex justify-between mb-4";
@@ -70,45 +75,57 @@ async function listSnippets() {
     });
 }
 
+// Function to extract only the content inside Markdown code blocks
+function extractCodeBlocks(text) {
+    // Regex to match complete code blocks including language specifier and enclosed content
+    const regex = /```[a-zA-Z]+\s*\n([\s\S]*?)```/g;
+    let matches, codeBlocks = [];
+
+    // Iterate over all regex matches and collect the contents of the code blocks
+    while ((matches = regex.exec(text)) !== null) {
+        // Push each found code block's content to an array
+        codeBlocks.push(matches[1]);
+    }
+
+    // Combine all extracted code blocks into a single string separated by new lines
+    return codeBlocks.join('\n');
+}
+
+// Function to handle selecting a snippet, updating UI and fetching details
 function selectSnippet(id) {
-    currentSnippetId = id; // Set current snippet ID globally
-    
-    // Enable buttons
+    currentSnippetId = id; // Update current snippet ID
+    // Reset display areas to default messages
+    document.getElementById("code-output").textContent = 'No code generated yet.';
+    document.getElementById("improved-code-output").textContent = 'No improvements yet.';
+    document.getElementById("test-output").textContent = 'No generated tests yet.';
+    document.getElementById("improved-tests-output").textContent = 'No improved tests yet.';
+    document.getElementById("test-result").textContent = '';
+    document.getElementById("regeneration-result").textContent = '';
+    document.getElementById("regenerate-code-result").textContent = ''
+    document.getElementById("test-result").className = '';
+    document.getElementById("regeneration-result").className = '';
+
+    // Enable all buttons now that a snippet is selected
     document.getElementById("generate-code-btn").disabled = false;
     document.getElementById("improve-code-btn").disabled = false;
     document.getElementById("generate-tests-btn").disabled = false;
     document.getElementById("improve-tests-btn").disabled = false;
     document.getElementById("run-tests-btn").disabled = false;
-    document.getElementById("regenerate-code-btn").disabled = false
+    document.getElementById("regenerate-code-btn").disabled = false;
 
-    // Fetch snippet details from the server
+    // Fetch detailed information for the selected snippet
     fetch(`/snippets/${id}`)
         .then(response => {
-            if (!response.ok) {
-                throw new Error('Snippet not found');
-            }
+            if (!response.ok) throw new Error('Snippet not found');
             return response.json();
         })
         .then(snippet => {
-            // Display snippet details
+            // Update display areas with snippet details
             document.getElementById("description-textarea").value = snippet.description || '';
-            document.getElementById("code-output").textContent = snippet.code || 'No code generated yet.';
-            const improvedCodeOutput = document.getElementById("improved-code-output");
-            improvedCodeOutput.textContent = snippet.improved_code || 'No improvements yet.';
+            document.getElementById("code-output").textContent = extractCodeBlocks(snippet.code) || 'No code generated yet.';
+            document.getElementById("improved-code-output").textContent = extractCodeBlocks(snippet.improved_code) || 'No improvements yet.';
             document.getElementById("test-output").textContent = snippet.tests || 'No generated tests yet.';
-            document.getElementById("improved-tests-output").textContent = snippet.improved_tests || 'No improved tests yet.'
-            document.getElementById("test-output").textContent = snippet.tests || 'No generated tests yet.'
-            // document.getElementById("test-results").textContent = snippet.test_results.results || 'No Tests run yet.'
-
-            // Highlight the selected snippet in the list
-            const snippets = document.querySelectorAll("#snippets li");
-            snippets.forEach(snippet => {
-                if (snippet.querySelector('a').getAttribute('onclick').includes(id)) {
-                    snippet.querySelector('button').style.display = 'none'; // Hide delete button
-                } else {
-                    snippet.querySelector('button').style.display = 'block'; // Show delete button for other snippets
-                }
-            });
+            document.getElementById("improved-tests-output").textContent = snippet.improved_tests || 'No improved tests yet.';
         })
         .catch(error => {
             console.error('Error fetching snippet:', error);
@@ -117,83 +134,86 @@ function selectSnippet(id) {
 }
 
 
-function removeMarkdownCodeTags(text) {
-    // Regex to remove ``` followed by any word characters (like ```python)
-    const regex = /```[a-zA-Z]+/g;
-    // Replace these tags with an empty string
-    return text.replace(regex, '').replace(/```/g, ''); // also remove closing ```
-}
-
-
+// Function to generate code for a snippet based on a description
 async function generateCode(snippetId, description) {
+    // Display a loading message in the code output area during processing
     const loadingMessage = document.getElementById("code-output");
-    loadingMessage.innerText = 'Generating code...';  // Display loading message
+    loadingMessage.innerText = 'Generating code...';
 
+    // Prepare the request data
     const formData = new FormData();
     formData.append('description', description);
+
+    // Make a POST request to generate code for the given snippet
     const response = await fetch(`/generate-code/${snippetId}`, { method: 'POST', body: formData });
     if (response.ok) {
         const snippet = await response.json();
-        // Clean the code received from Markdown code block tags
-        const cleanCode = removeMarkdownCodeTags(snippet.code);
+        // Extract and clean code from the snippet, removing Markdown syntax
+        const cleanCode = extractCodeBlocks(snippet.code);
         document.getElementById("code-output").innerText = cleanCode;
-        // document.getElementById("generate-tests-btn").disabled = false;
     } else {
+        // Log errors and alert the user if code generation fails
         console.error('Failed to generate code:', response.statusText);
         alert('Failed to generate code.');
     }
 }
 
-
-
+// Function to improve code based on user feedback
 async function improveCode(snippetId, feedback) {
+    // Display a loading message in the improved code output area during processing
     const loadingMessage = document.getElementById("improved-code-output");
-    loadingMessage.innerText = 'Improving code...';  // Display loading message
+    loadingMessage.innerText = 'Improving code...';
 
+    // Prepare the request data
     const formData = new FormData();
     formData.append('feedback', feedback);
-    const response = await fetch(`/snippets/${snippetId}/improve-code/`, {
-        method: 'POST',
-        body: formData
-    });
+
+    // Make a POST request to improve the code for the given snippet
+    const response = await fetch(`/snippets/${snippetId}/improve-code/`, { method: 'POST', body: formData });
     if (response.ok) {
         const snippet = await response.json();
-        // Clean the improved code from Markdown code block tags
-        const cleanCode = removeMarkdownCodeTags(snippet.code);
+        // Extract and clean the improved code, removing Markdown syntax
+        const cleanCode = extractCodeBlocks(snippet.code);
         document.getElementById("improved-code-output").innerText = cleanCode;
-        // document.getElementById("improve-code-btn").disabled = false;
     } else {
+        // Log errors and alert the user if code improvement fails
         console.error('Failed to improve code:', response.statusText);
         alert('Failed to improve code.');
     }
 }
 
-
+// Function to generate tests for a snippet's code
 async function generateTests(snippetId) {
+    // Display a loading message in the test output area during processing
     const loadingMessage = document.getElementById("test-output");
-    loadingMessage.innerText = 'Generating test cases...';  // Display loading message
-    
-    const response = await fetch(`/snippets/${snippetId}/generate-tests/`, { method: 'POST'});
+    loadingMessage.innerText = 'Generating test cases...';
+
+    // Make a POST request to generate tests for the given snippet
+    const response = await fetch(`/snippets/${snippetId}/generate-tests/`, { method: 'POST' });
     const snippet = await response.json();
     document.getElementById("test-output").innerText = snippet.tests;
-    // document.getElementById("generate-tests-btn").disabled = false;
+    document.getElementById("generate-tests-btn").disabled = false;
 }
 
+// Function to improve test cases based on user feedback
 async function improveTests(snippetId, feedback) {
+    // Display a loading message in the improved tests output area during processing
     const loadingMessage = document.getElementById("improved-tests-output");
-    loadingMessage.innerText = 'Improving test cases...';  // Display loading message
+    loadingMessage.innerText = 'Improving test cases...';
 
+    // Prepare the request data
     const formData = new FormData();
     formData.append('feedback', feedback);
+
+    // Make a POST request to improve the test cases for the given snippet
     const response = await fetch(`/snippets/${snippetId}/improve-tests/`, { method: 'POST', body: formData });
     const snippet = await response.json();
     document.getElementById("improved-tests-output").innerText = snippet.tests;
-    document.getElementById("improve-tests-btn").disabled = false;
 }
 
-
+// Function to run tests on a snippet's code
 async function runTests(snippetId) {
-    // First, retrieve the snippet details to check the language
+    // Retrieve the snippet details to check the language before running tests
     const snippetResponse = await fetch(`/snippets/${snippetId}`);
     if (!snippetResponse.ok) {
         alert('Failed to retrieve snippet details.');
@@ -201,17 +221,18 @@ async function runTests(snippetId) {
     }
     const snippet = await snippetResponse.json();
 
-    // Check if the language of the snippet is Python
+    // Only support testing for Python code
     if (snippet.language !== 'Python') {
         alert('Testing is only supported for Python code.');
-        return; // Exit the function if the language is not Python
+        return;
     }
 
-    // Proceed with running the tests if the language is Python
+    // Make a POST request to run tests on the given snippet
     const response = await fetch(`/snippets/${snippetId}/test/`, { method: 'POST' });
     const result = await response.json();
     const testResultDiv = document.getElementById("test-result");
 
+    // Display the test results with appropriate styling based on success or failure
     if (response.ok) {
         testResultDiv.className = result.message === "Tests passed" ? "bg-green-300 p-4 rounded mb-4" : "bg-red-300 p-4 rounded mb-4";
         testResultDiv.innerText = result.output;
@@ -219,23 +240,19 @@ async function runTests(snippetId) {
         testResultDiv.className = "bg-red-300 p-4 rounded mb-4";
         testResultDiv.innerText = 'Failed to run tests due to server error. Please try again.';
     }
-    // if (result.message === "Tests failed") {
-    //     document.getElementById("regenerate-code-btn").disabled = false; // Enable regenerate button
-    // } else {
-    //     document.getElementById("regenerate-code-btn").disabled = true; // Disable if not needed
-    // }
-    
 }
 
-
-
+// Function to regenerate code for a snippet based on failed tests
 async function regenerateCode(snippetId) {
+    // Make a POST request to regenerate code for the given snippet
     const response = await fetch(`/snippets/${snippetId}/regenerate-code/`, { method: 'POST' });
     const resultDiv = document.getElementById("regeneration-result");
+    const results = document.getElementById("regenerate-code-result")
     resultDiv.className = "p-4 rounded mb-4"; // Reset class to ensure visibility styling
     if (response.ok) {
         const result = await response.json();
-        document.getElementById("regenerate-code-result").textContent = result.code;
+        const cleanCode = extractCodeBlocks(result.code);
+        results.textContent = cleanCode;
         resultDiv.textContent = 'Code regenerated successfully.';
         resultDiv.classList.add("bg-green-300"); // Add success styling
     } else {
@@ -245,10 +262,12 @@ async function regenerateCode(snippetId) {
     resultDiv.classList.remove("hidden"); // Make the div visible
 }
 
+// Function to delete a snippet
 async function deleteSnippet(snippetId) {
+    // Make a DELETE request to remove the specified snippet
     const response = await fetch(`/snippets/${snippetId}`, { method: 'DELETE' });
     const result = await response.json();
-    console.log(result.message); // Optionally handle this message in UI
-    listSnippets(); // Refresh the list after deletion
+    console.log(result.message); // Log deletion message for debugging
+    listSnippets(); // Refresh the list of snippets after deletion
 }
 
