@@ -3,12 +3,14 @@ document.addEventListener("DOMContentLoaded", function() {
     createSnippetBtn.addEventListener("click", createSnippet);
     const generateCodeBtn = document.getElementById("generate-code-btn");
     const descriptionTextarea = document.getElementById("description-textarea");
-    const feedbackInput = document.getElementById("feedback-input");
+    // const feedbackInput = document.getElementById("feedback-input");
     const improveCodeBtn = document.getElementById("improve-code-btn");
     const generateTestsBtn = document.getElementById("generate-tests-btn");
     const feedbackTestInput = document.getElementById("feedback-test-input");
     const improveTestsBtn = document.getElementById("improve-tests-btn");
     const runTestsBtn = document.getElementById("run-tests-btn");
+    const regenerateCodeBtn = document.getElementById("regenerate-code-btn")
+    
 
     listSnippets(); // Initial call to populate the list of snippets
 
@@ -31,6 +33,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
     runTestsBtn.addEventListener("click", function() {
         runTests(currentSnippetId);
+    });
+
+    regenerateCodeBtn.addEventListener("click", function() {
+        regenerateCode(currentSnippetId);
     });
 });
 
@@ -73,6 +79,7 @@ function selectSnippet(id) {
     document.getElementById("generate-tests-btn").disabled = false;
     document.getElementById("improve-tests-btn").disabled = false;
     document.getElementById("run-tests-btn").disabled = false;
+    document.getElementById("regenerate-code-btn").disabled = false
 
     // Fetch snippet details from the server
     fetch(`/snippets/${id}`)
@@ -130,7 +137,7 @@ async function generateCode(snippetId, description) {
         // Clean the code received from Markdown code block tags
         const cleanCode = removeMarkdownCodeTags(snippet.code);
         document.getElementById("code-output").innerText = cleanCode;
-        document.getElementById("generate-tests-btn").disabled = false;
+        // document.getElementById("generate-tests-btn").disabled = false;
     } else {
         console.error('Failed to generate code:', response.statusText);
         alert('Failed to generate code.');
@@ -154,14 +161,13 @@ async function improveCode(snippetId, feedback) {
         // Clean the improved code from Markdown code block tags
         const cleanCode = removeMarkdownCodeTags(snippet.code);
         document.getElementById("improved-code-output").innerText = cleanCode;
-        document.getElementById("improve-code-btn").disabled = false;
+        // document.getElementById("improve-code-btn").disabled = false;
     } else {
         console.error('Failed to improve code:', response.statusText);
         alert('Failed to improve code.');
     }
 }
 
-    
 
 async function generateTests(snippetId) {
     const loadingMessage = document.getElementById("test-output");
@@ -170,7 +176,7 @@ async function generateTests(snippetId) {
     const response = await fetch(`/snippets/${snippetId}/generate-tests/`, { method: 'POST'});
     const snippet = await response.json();
     document.getElementById("test-output").innerText = snippet.tests;
-    document.getElementById("generate-tests-btn").disabled = false;
+    // document.getElementById("generate-tests-btn").disabled = false;
 }
 
 async function improveTests(snippetId, feedback) {
@@ -213,8 +219,31 @@ async function runTests(snippetId) {
         testResultDiv.className = "bg-red-300 p-4 rounded mb-4";
         testResultDiv.innerText = 'Failed to run tests due to server error. Please try again.';
     }
+    // if (result.message === "Tests failed") {
+    //     document.getElementById("regenerate-code-btn").disabled = false; // Enable regenerate button
+    // } else {
+    //     document.getElementById("regenerate-code-btn").disabled = true; // Disable if not needed
+    // }
+    
 }
 
+
+
+async function regenerateCode(snippetId) {
+    const response = await fetch(`/snippets/${snippetId}/regenerate-code/`, { method: 'POST' });
+    const resultDiv = document.getElementById("regeneration-result");
+    resultDiv.className = "p-4 rounded mb-4"; // Reset class to ensure visibility styling
+    if (response.ok) {
+        const result = await response.json();
+        document.getElementById("regenerate-code-result").textContent = result.code;
+        resultDiv.textContent = 'Code regenerated successfully.';
+        resultDiv.classList.add("bg-green-300"); // Add success styling
+    } else {
+        resultDiv.textContent = 'Failed to regenerate code. Please check the test results.';
+        resultDiv.classList.add("bg-red-300"); // Add failure styling
+    }
+    resultDiv.classList.remove("hidden"); // Make the div visible
+}
 
 async function deleteSnippet(snippetId) {
     const response = await fetch(`/snippets/${snippetId}`, { method: 'DELETE' });
@@ -222,3 +251,4 @@ async function deleteSnippet(snippetId) {
     console.log(result.message); // Optionally handle this message in UI
     listSnippets(); // Refresh the list after deletion
 }
+

@@ -86,7 +86,7 @@ async def generate_response(prompt: str, language: str):
     }
     async with httpx.AsyncClient() as client:
         response = await client.post(url, json=data, headers=headers)
-        print(response.json())
+        # print(response.json())
         return response.json()['choices'][0]['message']['content'].strip()
 
 async def request_chatgpt(prompt: str):
@@ -300,7 +300,7 @@ def parse_and_execute_tests(code, test_cases):
             # Modify input parsing to correctly format it for function calls
             if "(" or ")" in inputs:
                 inputs = inputs.strip("()")# Remove enclosing parentheses
-                print(inputs)  
+                # print(inputs)  
             test_script += f"""
 try:
     result = {function_name}({inputs})
@@ -336,7 +336,7 @@ async def test_snippet(snippet_id: str):
         raise HTTPException(status_code=404, detail="Snippet not found or not Python")
  
 
-@app.post("/regenerate-code/")
+@app.post("/snippets/{snippet_id}/regenerate-code/")
 async def regenerate_code(snippet_id: str):
     snippets = load_snippets()
     snippet = next((s for s in snippets if s["id"] == snippet_id), None)
