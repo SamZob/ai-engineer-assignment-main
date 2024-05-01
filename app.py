@@ -87,6 +87,8 @@ async def generate_response(prompt: str, language: str):
         response = await client.post(
             "https://api.openai.com/v1/chat/completions", json=data, headers=headers
         )
+        # print(dir(response))
+        print(response.json())
         return response.json()["choices"][0]["message"]["content"].strip()
 
 

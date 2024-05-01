@@ -79,10 +79,11 @@ async function listSnippets() {
 function extractCodeBlocks(text) {
     // Regex to match complete code blocks including language specifier and enclosed content
     const regex = /```[a-zA-Z]+\s*\n([\s\S]*?)```/g;
+    const regex2 = /```[a-zA-Z]+\s*\n([\s\S]*?)/g;
     let matches, codeBlocks = [];
 
     // Iterate over all regex matches and collect the contents of the code blocks
-    while ((matches = regex.exec(text)) !== null) {
+    while ((matches = regex.exec(text)) !== null || (matches = regex2.exec(text)) !== null) {
         // Push each found code block's content to an array
         codeBlocks.push(matches[1]);
     }
@@ -126,6 +127,16 @@ function selectSnippet(id) {
             document.getElementById("improved-code-output").textContent = extractCodeBlocks(snippet.improved_code) || 'No improvements yet.';
             document.getElementById("test-output").textContent = snippet.tests || 'No generated tests yet.';
             document.getElementById("improved-tests-output").textContent = snippet.improved_tests || 'No improved tests yet.';
+
+            // Highlight the selected snippet in the list
+            const snippets = document.querySelectorAll("#snippets li");
+            snippets.forEach(snippet => {
+                if (snippet.querySelector('a').getAttribute('onclick').includes(id)) {
+                    snippet.querySelector('button').style.display = 'none'; // Hide delete button
+                } else {
+                    snippet.querySelector('button').style.display = 'block'; // Show delete button for other snippets
+                }
+            });
         })
         .catch(error => {
             console.error('Error fetching snippet:', error);
