@@ -13,4 +13,6 @@ fi
 docker build -t $IMAGE_NAME .
 
 # Run the Docker container
-docker run --rm -p 8000:8000 --env-file .env $IMAGE_NAME
+# docker run --rm -p 8000:8000 --env-file .env $IMAGE_NAME
+docker run --rm -p 8000:8000 -e OPENAI_API_KEY=<YOUR_API_KEY> $IMAGE_NAME
+
