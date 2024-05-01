@@ -1,91 +1,82 @@
-# Autify AI Engineer Assignment: Code Snippet Generation
+# Code Snippet Generation
 
-This assignment evaluates your ability to write clean Python code and solve AI/LLM problems. Your main task is to implement the APIs necessary for generating code snippets.
-
-The application should **at least** support the following programming languages:
+The application support the following programming languages:
 
 - `Python`
 - `Javascript`
 - `Ruby`
 
-For snippet description/feedback, the following languagues must be supported:
+For snippet description/feedback, the following languagues are supported:
 
 - `English`
 - `Japanese`
 
-## Reference Workflow
-
-To understand this section, please open `design.html` in a browser. The design consists of two columns:
-
-- **Left Column**: Contains a list of previously generated snippets
-    - Click on a snippet to load it in the code editor
-    - Option to delete a snippet
-- **Right Column**: Contains the main code generator
-    - Describe the code to generate and select the desired language in the text area
-    - Clicking "Generate" will display the generated code snippet below
-    - A feedback box is provided to improve the generated code
-    - Button to generate tests for the code
-    - Provide feedback to improve the generated tests
-    - Button to run tests and display results
-    - Disabled button to improve code based on test results
-
 ## Getting Started
 
-To work on this project, you need a basic understanding of FastAPI, Python, and Javascript. Implement the backend APIs using FastAPI. For frontend work, you have two options:
+ To get started, **ADD YOUR API KEY** to `start-docker-server.sh`in:
 
-- Implement frontend logic by dividing the design page into multiple parts and implementing logic in the backend using FastAPI template(s).
-- Write Javascript code to create a single-page app and interact with the backend using APIs. If not familiar with frontend work, use ChatGPT or another AI tool to assist.
+ ```bash
+ docker run --rm -p 8000:8000 -e OPENAI_API_KEY=<YOUR_API_KEY> $IMAGE_NAME
+ ```
+ **with double quotes**
+ 
+  Using the .env file to store the API didn't work as expected when running container (OPEN AI API endpoint doesn't recognize tha api key provided), otherwise the app works fine using python locally.
 
-The repository's basic settings are configured to run in a specific way. A Dockerfile installs requirements and runs `app.py`, so refrain from updating the app structure unless necessary.
+  Run the `start-docker-server.sh` to start the server and visit `http://localhost:8000` to see the project. Docker must be installed.
 
-Use OpenAI ChatGPT 3.5 turbo model for this project. Sign up on ChatGPT to obtain the API key. Development and testing should cost less than $0.1.
+ ## Areas of improvement
+ 
+ Here are different aspects that could be integrated to the application to enhance it capabilities:
 
-To start working on the project:
-1. You will be provided with a zip file containing the project structure.
-2. Set up a new Python 3.11 environment and install dependencies.
-3. Create the .env file (see .env.example) and add the required environment variables. Update .env.example with correct variable names.
-4. Understand the application logic and frontend workings by reviewing `design.html`.
-5. Work on `design.html` and `app.py` to create a coherent system meeting assignment requirements. Create additional files if necessary.
+ ### BackEnd
 
-Before submission, ensure the project works locally. Run `start-docker-server.sh` to start the server and visit `http://localhost:8000` to see the project. Docker must be installed.
+ 1. **Enhanced Test Generation**:
+   - Implement more sophisticated test generation methods that can understand the structure and logic of the provided code snippets. This could involve using machine learning techniques or more advanced pattern matching algorithms.
+   - Provide options for the user to specify test criteria or constraints, such as input ranges, edge cases, or specific behaviors to test.
 
-Once completed, send the repository link to the HR team for evaluation.
+2. **Dynamic Test Execution**:
+   - Develop a more flexible test execution system that can handle tests for various programming languages beyond just Python. This could involve integrating with testing frameworks specific to each language.
+   - Improve error handling and reporting during test execution to provide clearer feedback on test failures, including highlighting the specific test case that failed and the reason for failure.
 
-> You're encouraged to use any AI tool like ChatGPT or Copilot to assist in code writing. Spend no more than 4 hours on this project.
+3. **Parallel Testing**:
+   - Implement parallel test execution to improve performance, especially when running tests for multiple functions or large test suites. This could involve utilizing multiprocessing or asynchronous programming techniques.
 
-## Evaluation
+4. **Code Coverage Analysis**:
+   - Integrate code coverage analysis tools to assess the effectiveness of the tests generated. This would help identify areas of the code that are not adequately covered by the tests, guiding further test generation efforts.
 
-For evaluation, your code must run without errors. If `start-docker-server.sh` throws errors due to your code during image building or server running, you'll be disqualified.
+5. **Feedback Loop**:
+   - Establish a feedback loop where the results of test execution are analyzed to identify patterns of failures or areas where the test generation process can be improved. This feedback can then be used to refine the test generation algorithms.
 
-Your code should meet all assignment requirements. Marks will be deducted for any unmet requirement:
+6. **Optimization for Algebraic Functions**:
+   - Develop specialized methods for generating and testing algebraic functions, leveraging mathematical properties and transformations to generate meaningful test cases.
+   - Explore techniques such as symbolic computation or algebraic simplification to assist in generating test inputs and expected outputs for algebraic functions.
 
-- Code Quality (15%)
-    - Your code should be clean and easy to read
-    - Your code should use black code formatter
-    - Your code should be well documented
-    - Your code should be efficient
-    - Github Repository should be clean and well organized including commit messages
-- UI/UX (15%):
-    - The UI is faithful to the provided design template
-    - The code blocks only contains the code snippet, no explanation or other text
-    - Sections are added when needed i.e. test generation part is hidden until we generate the code
-    - Language Highlighter works proper for all of the supported languages
-    - Selecting a code snippet hides `Delete` button and highlights the selected snippet
-    - The code is streamed to the UI as it is generated
-- Functionality (70%)
-    - Snippet List (10%):
-        - We should be able to click and load previously generated snippets
-        - We should be able to delete previously generated snippets
-        - We should be able to create new snippets
-        - Snippet should automatically be saved when we click the "Generate" button
-        - The title & language of the snippets are generated automatically
-    - Code Generation (50%):
-        - We should be able to generate code snippets (functions) in Python, Javascript, and Ruby
-        - We should be able to provide feedback in English or Japanese on the generated code and improve it
-        - We should be able to generate tests for the code snippets (non-function code)
-        - We should be able to improve the tests with feedback in English or Japanese
-        - We should be able to run the tests to validate the code (Only Enabled when Languague Python)
-        - We should be able to improve the code based on test results when tests fail
-    - Miscellanous (10%):
-        - LLM Security: Prompt injection should be handled properly
-        - High quality code generation using techniques like Chain-of-thought, etc.
+7. **Security Considerations**:
+   - Implement security measures to prevent malicious code injection or unintended behaviors during test execution, especially when executing user-provided code snippets.
+   - Consider sandboxing or containerization techniques to isolate test execution environments and mitigate potential security risks.
+
+### Frontend
+
+1. **Error Handling and Feedback**:
+- Implement more robust error handling mechanisms throughout the application to provide meaningful feedback to users when actions fail.
+- Display appropriate error messages in the UI when API requests fail, guiding users on how to proceed.
+
+2. **User Experience Enhancements**:
+- Improve the user interface with clearer visual cues and feedback during code generation, test execution, and other asynchronous processes.
+- Consider adding loading spinners or progress indicators to indicate when actions are in progress.
+
+3. **Snippet Management**:
+- Enhance the snippet list UI with features such as pagination, sorting, or filtering to improve usability, especially when dealing with a large number of snippets.
+- Allow users to edit snippet descriptions or titles directly from the UI, providing a more seamless editing experience.
+
+4. **Code Presentation**:
+- Implement syntax highlighting for code snippets displayed in the UI to improve readability and make the code more visually appealing.
+- Provide options for users to toggle between different code highlighting themes to customize their viewing experience.
+
+5. **Input Validation and Sanitization**:
+- Implement input validation mechanisms to ensure that user-provided inputs are sanitized and validated before being sent to the server.
+- Validate user inputs such as descriptions, feedback, or test cases to prevent potential security vulnerabilities or data corruption.
+
+
+
+
