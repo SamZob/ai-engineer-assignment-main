@@ -13,7 +13,7 @@ For snippet description/feedback, the following languagues are supported:
 
 ## Getting Started
 
- To get started, **ADD YOUR API KEY** to `start-docker-server.sh`in:
+ To get started, **ADD YOUR API KEY** to `start-docker-server.sh` in:
 
  ```bash
  docker run --rm -p 8000:8000 -e OPENAI_API_KEY=<YOUR_API_KEY> $IMAGE_NAME
@@ -26,7 +26,7 @@ For snippet description/feedback, the following languagues are supported:
 
  ## Areas of improvement
  
- Here are different aspects that could be integrated to the application to enhance it capabilities:
+ Here are different aspects that could be integrated to the application to enhance its capabilities:
 
  ### BackEnd
 
