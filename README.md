@@ -13,16 +13,9 @@ For snippet description/feedback, the following languagues are supported:
 
 ## Getting Started
 
- To get started, **ADD YOUR API KEY** to `start-docker-server.sh` in:
-
- ```bash
- docker run --rm -p 8000:8000 -e OPENAI_API_KEY=<YOUR_API_KEY> $IMAGE_NAME
- ```
- **with double quotes**
+ To get started, simply run the `start-docker-server.sh` to start the server and visit `http://localhost:8000` to see the project. Docker must be installed.
  
-  Using the .env file to store the API didn't work as expected when running container (OPEN AI API endpoint doesn't recognize tha api key provided), otherwise the app works fine using python locally.
-
-  Run the `start-docker-server.sh` to start the server and visit `http://localhost:8000` to see the project. Docker must be installed.
+ Make sure `start-docker-server.sh` is the one updated from my repository.
 
  ## Areas of improvement
  
