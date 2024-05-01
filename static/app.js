@@ -77,20 +77,20 @@ async function listSnippets() {
 
 // Function to extract only the content inside Markdown code blocks
 function extractCodeBlocks(text) {
-    // Regex to match complete code blocks including language specifier and enclosed content
-    const regex = /```[a-zA-Z]+\s*\n([\s\S]*?)```/g;
-    const regex2 = /```[a-zA-Z]+\s*\n([\s\S]*?)/g;
+    // Regex to match complete code blocks including language specifier, enclosed content, and optional ending backticks
+    const regex = /```[a-zA-Z]+\s*\n([\s\S]*?)(?:```|$)/g;
     let matches, codeBlocks = [];
 
     // Iterate over all regex matches and collect the contents of the code blocks
-    while ((matches = regex.exec(text)) !== null || (matches = regex2.exec(text)) !== null) {
-        // Push each found code block's content to an array
-        codeBlocks.push(matches[1]);
+    while ((matches = regex.exec(text)) !== null) {
+        // Push each found code block's content to an array, stripping potential trailing new lines
+        codeBlocks.push(matches[1].trim());
     }
 
     // Combine all extracted code blocks into a single string separated by new lines
     return codeBlocks.join('\n');
 }
+
 
 // Function to handle selecting a snippet, updating UI and fetching details
 function selectSnippet(id) {
